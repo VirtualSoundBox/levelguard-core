@@ -87,7 +87,7 @@ cmake --build build_x64 --config Release
 
 ## ライセンス
 
-GPL-2.0
+MIT License
 
 ---
 
