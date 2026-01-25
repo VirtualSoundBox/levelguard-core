@@ -1,0 +1,24 @@
+# Build directories
+build_x64/
+build_x86/
+out/
+.deps/
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.suo
+*.user
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Build scripts (user-specific)
+build_cmake.ps1
+
+# IDE
+.idea/
+*.swp
+*.swo

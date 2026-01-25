@@ -1,0 +1,24 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Source files
+*.c text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+
+# CMake
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+
+# Config files
+*.json text eol=lf
+*.ini text eol=lf
+*.md text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Windows specific
+*.bat text eol=crlf
