@@ -12,9 +12,10 @@
 namespace levelguard {
 namespace core {
 
-StateMachine::StateMachine()
+StateMachine::StateMachine(LoggerPtr logger)
     : state_(CoreState::IDLE)
     , on_state_change_(nullptr)
+    , logger_(logger ? logger : std::make_shared<NullLogger>())
 {
 }
 
@@ -53,6 +54,14 @@ TransitionResult StateMachine::do_transition(CoreEvent event)
         result.reason += to_string(state_);
         result.reason += " + ";
         result.reason += to_string(event);
+
+        // Decision Log: 遷移拒否を記録
+        logger_->log_decision(
+            LogLevel::WARNING,
+            "TRANSITION_REJECTED",
+            result.reason
+        );
+
         return result;
     }
 
@@ -73,6 +82,9 @@ TransitionResult StateMachine::do_transition(CoreEvent event)
     result.success = true;
     result.to_state = new_state;
     result.reason = "";
+
+    // Lifecycle Log: 状態遷移を記録
+    logger_->log_lifecycle(event, result.from_state, result.to_state);
 
     // コールバックを呼び出し
     if (on_state_change_) {
