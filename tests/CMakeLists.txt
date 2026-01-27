@@ -23,6 +23,7 @@ add_executable(
   state_machine_test.cpp
   logger_test.cpp
   state_history_test.cpp
+  dsp_test.cpp
 )
 
 # インクルードパス
@@ -37,6 +38,9 @@ target_sources(
   levelguard_core_test
   PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core/state_machine.cpp
+    ${CMAKE_SOURCE_DIR}/src/dsp/true_peak.cpp
+    ${CMAKE_SOURCE_DIR}/src/dsp/rms.cpp
+    ${CMAKE_SOURCE_DIR}/src/dsp/lufs.cpp
 )
 
 # Google Test とリンク
