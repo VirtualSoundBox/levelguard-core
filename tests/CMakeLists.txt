@@ -25,6 +25,7 @@ add_executable(
   state_history_test.cpp
   dsp_test.cpp
   limiter_test.cpp
+  compressor_test.cpp
 )
 
 # インクルードパス
@@ -43,6 +44,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/dsp/rms.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/lufs.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/limiter.cpp
+    ${CMAKE_SOURCE_DIR}/src/dsp/compressor.cpp
 )
 
 # Google Test とリンク
