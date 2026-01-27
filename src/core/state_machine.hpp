@@ -10,9 +10,11 @@
 
 #include "state.hpp"
 #include "event.hpp"
+#include "logger.hpp"
 #include <mutex>
 #include <functional>
 #include <string>
+#include <memory>
 
 namespace levelguard {
 namespace core {
@@ -51,8 +53,10 @@ public:
     /**
      * コンストラクタ
      * 初期状態は IDLE
+     *
+     * @param logger ロガー（nullptr の場合は NullLogger を使用）
      */
-    StateMachine();
+    explicit StateMachine(LoggerPtr logger = nullptr);
 
     /**
      * デストラクタ
@@ -93,6 +97,7 @@ private:
     mutable std::mutex mutex_;
     CoreState state_;
     StateChangeCallback on_state_change_;
+    LoggerPtr logger_;
 
     /**
      * 遷移を実行（内部用、ロック済み前提）
