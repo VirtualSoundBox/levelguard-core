@@ -43,6 +43,7 @@ target_sources(
     src/dsp/true_peak.cpp
     src/dsp/rms.cpp
     src/dsp/lufs.cpp
+    src/dsp/limiter.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

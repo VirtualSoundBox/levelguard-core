@@ -24,6 +24,7 @@ add_executable(
   logger_test.cpp
   state_history_test.cpp
   dsp_test.cpp
+  limiter_test.cpp
 )
 
 # インクルードパス
@@ -41,6 +42,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/dsp/true_peak.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/rms.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/lufs.cpp
+    ${CMAKE_SOURCE_DIR}/src/dsp/limiter.cpp
 )
 
 # Google Test とリンク
