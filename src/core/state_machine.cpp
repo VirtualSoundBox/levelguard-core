@@ -12,11 +12,13 @@
 namespace levelguard {
 namespace core {
 
-StateMachine::StateMachine(LoggerPtr logger)
+StateMachine::StateMachine(LoggerPtr logger, size_t max_history_size)
     : state_(CoreState::IDLE)
     , on_state_change_(nullptr)
     , logger_(logger ? logger : std::make_shared<NullLogger>())
+    , max_history_size_(max_history_size)
 {
+    history_.reserve(max_history_size_);
 }
 
 CoreState StateMachine::current_state() const
@@ -25,10 +27,10 @@ CoreState StateMachine::current_state() const
     return state_;
 }
 
-TransitionResult StateMachine::dispatch(CoreEvent event)
+TransitionResult StateMachine::dispatch(CoreEvent event, const std::string& context)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    return do_transition(event);
+    return do_transition(event, context);
 }
 
 void StateMachine::set_on_state_change(StateChangeCallback callback)
@@ -37,11 +39,33 @@ void StateMachine::set_on_state_change(StateChangeCallback callback)
     on_state_change_ = std::move(callback);
 }
 
-TransitionResult StateMachine::do_transition(CoreEvent event)
+std::vector<HistoryEntry> StateMachine::get_history() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return history_;
+}
+
+std::optional<HistoryEntry> StateMachine::get_last_transition() const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (history_.empty()) {
+        return std::nullopt;
+    }
+    return history_.back();
+}
+
+void StateMachine::clear_history()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    history_.clear();
+}
+
+TransitionResult StateMachine::do_transition(CoreEvent event, const std::string& context)
 {
     TransitionResult result;
     result.from_state = state_;
     result.event = event;
+    result.context = "";  // デフォルトは空
 
     // 遷移テーブルから次の状態を取得
     auto next = TransitionTable::next_state(state_, event);
@@ -73,7 +97,7 @@ TransitionResult StateMachine::do_transition(CoreEvent event)
         result.success = true;
         result.to_state = state_;
         result.reason = "";
-        // 同じ状態への遷移はコールバックを呼ばない
+        // 同じ状態への遷移はコールバック・履歴に記録しない
         return result;
     }
 
@@ -82,6 +106,16 @@ TransitionResult StateMachine::do_transition(CoreEvent event)
     result.success = true;
     result.to_state = new_state;
     result.reason = "";
+    result.context = context;
+
+    // 履歴に追加
+    HistoryEntry entry;
+    entry.from_state = result.from_state;
+    entry.to_state = result.to_state;
+    entry.event = event;
+    entry.context = context;
+    entry.timestamp = current_timestamp();
+    add_to_history(entry);
 
     // Lifecycle Log: 状態遷移を記録
     logger_->log_lifecycle(event, result.from_state, result.to_state);
@@ -92,6 +126,26 @@ TransitionResult StateMachine::do_transition(CoreEvent event)
     }
 
     return result;
+}
+
+void StateMachine::add_to_history(const HistoryEntry& entry)
+{
+    if (max_history_size_ == 0) {
+        return;
+    }
+
+    if (history_.size() >= max_history_size_) {
+        // 古いエントリを削除
+        history_.erase(history_.begin());
+    }
+    history_.push_back(entry);
+}
+
+int64_t StateMachine::current_timestamp()
+{
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
 }
 
 } // namespace core
