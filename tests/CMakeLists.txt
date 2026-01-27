@@ -22,6 +22,7 @@ add_executable(
   levelguard_core_test
   state_machine_test.cpp
   logger_test.cpp
+  state_history_test.cpp
 )
 
 # インクルードパス
