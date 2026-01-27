@@ -6,6 +6,7 @@ project(${_name} VERSION ${_version})
 
 option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" OFF)
 option(ENABLE_QT "Use Qt functionality" OFF)
+option(ENABLE_TESTS "Build unit tests" OFF)
 
 include(compilerconfig)
 include(defaults)
@@ -44,3 +45,8 @@ target_sources(
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+
+# テストのビルド
+if(ENABLE_TESTS)
+  add_subdirectory(tests)
+endif()
