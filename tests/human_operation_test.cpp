@@ -1,5 +1,5 @@
 /*
- * LevelGuard Core - Human Operation Detection Tests (Phase 1)
+ * LevelGuard Core - Human Operation Detection Tests
  * Copyright (c) 2025 VirtualSoundBox
  *
  * This software is released under the MIT License.
@@ -84,4 +84,88 @@ TEST_F(HumanOperationTest, NotifyDuringError) {
 
     EXPECT_FALSE(result);
     EXPECT_EQ(sm_->current_state(), CoreState::ERROR);
+}
+
+// ============================================================================
+// Phase 2: フラグ管理・操作理由テスト
+// ============================================================================
+
+// SUSPENDED中に人間操作通知 → 変化なし、フラグ更新
+TEST_F(HumanOperationTest, NotifyDuringSuspended) {
+    sm_->dispatch(CoreEvent::CORE_INIT);
+    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    sm_->dispatch(CoreEvent::CORE_SUSPEND);
+
+    EXPECT_EQ(sm_->current_state(), CoreState::SUSPENDED);
+
+    bool result = detector_->notify_human_operation("fader_change");
+
+    // 遷移は発生しない（既にSUSPENDED）
+    EXPECT_FALSE(result);
+    EXPECT_EQ(sm_->current_state(), CoreState::SUSPENDED);
+
+    // フラグは更新される
+    EXPECT_TRUE(detector_->is_human_operating());
+    EXPECT_EQ(detector_->get_last_operation_reason(), "fader_change");
+}
+
+// 抑制カウントが正しくカウントされる
+TEST_F(HumanOperationTest, SuppressionCount) {
+    sm_->dispatch(CoreEvent::CORE_INIT);
+    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    sm_->dispatch(CoreEvent::CORE_INTERVENTION_START);
+
+    // 1回目
+    detector_->notify_human_operation("fader_change");
+    EXPECT_EQ(detector_->get_suppression_count(), 1u);
+
+    // 復帰して再度介入
+    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    sm_->dispatch(CoreEvent::CORE_INTERVENTION_START);
+
+    // 2回目
+    detector_->notify_human_operation("volume_change");
+    EXPECT_EQ(detector_->get_suppression_count(), 2u);
+}
+
+// カウントリセット
+TEST_F(HumanOperationTest, ResetClearsCount) {
+    sm_->dispatch(CoreEvent::CORE_INIT);
+    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    sm_->dispatch(CoreEvent::CORE_INTERVENTION_START);
+
+    detector_->notify_human_operation("fader_change");
+    EXPECT_EQ(detector_->get_suppression_count(), 1u);
+    EXPECT_TRUE(detector_->is_human_operating());
+
+    // リセット
+    detector_->reset();
+
+    EXPECT_EQ(detector_->get_suppression_count(), 0u);
+    EXPECT_FALSE(detector_->is_human_operating());
+    EXPECT_TRUE(detector_->get_last_operation_reason().empty());
+}
+
+// 操作理由が記録される
+TEST_F(HumanOperationTest, OperationReasonRecorded) {
+    sm_->dispatch(CoreEvent::CORE_INIT);
+    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    sm_->dispatch(CoreEvent::CORE_INTERVENTION_START);
+
+    detector_->notify_human_operation("mute_toggle");
+
+    EXPECT_EQ(detector_->get_last_operation_reason(), "mute_toggle");
+}
+
+// 空の理由でも動作する
+TEST_F(HumanOperationTest, EmptyReasonAllowed) {
+    sm_->dispatch(CoreEvent::CORE_INIT);
+    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    sm_->dispatch(CoreEvent::CORE_INTERVENTION_START);
+
+    bool result = detector_->notify_human_operation();
+
+    EXPECT_TRUE(result);
+    EXPECT_EQ(sm_->current_state(), CoreState::SUSPENDED);
+    EXPECT_TRUE(detector_->get_last_operation_reason().empty());
 }
