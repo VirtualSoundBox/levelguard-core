@@ -16,6 +16,11 @@ HumanOperationDetector::HumanOperationDetector(core::StateMachine& state_machine
     , is_human_operating_(false)
     , suppression_count_(0)
 {
+    // 状態変化コールバックを登録（復帰検知用）
+    state_machine_.set_on_state_change(
+        [this](const core::TransitionResult& result) {
+            on_state_change(result);
+        });
 }
 
 bool HumanOperationDetector::notify_human_operation(const std::string& reason)
@@ -78,6 +83,16 @@ void HumanOperationDetector::reset()
     is_human_operating_ = false;
     suppression_count_ = 0;
     last_operation_reason_.clear();
+}
+
+void HumanOperationDetector::on_state_change(const core::TransitionResult& result)
+{
+    // SUSPENDED→MONITORING復帰時にフラグをクリア
+    if (result.success &&
+        result.from_state == core::CoreState::SUSPENDED &&
+        result.to_state == core::CoreState::MONITORING) {
+        is_human_operating_ = false;
+    }
 }
 
 } // namespace detection

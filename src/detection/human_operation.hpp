@@ -44,6 +44,11 @@ public:
     explicit HumanOperationDetector(core::StateMachine& state_machine);
 
     /**
+     * デストラクタ
+     */
+    ~HumanOperationDetector() = default;
+
+    /**
      * 人間操作を通知
      *
      * MONITORING/INTERVENING状態の場合、CORE_SUSPENDを発行して
@@ -86,6 +91,11 @@ private:
     size_t suppression_count_;
     std::string last_operation_reason_;
     HumanOperationCallback on_human_operation_;
+
+    /**
+     * 状態変化時のコールバック（復帰検知用）
+     */
+    void on_state_change(const core::TransitionResult& result);
 };
 
 } // namespace detection
