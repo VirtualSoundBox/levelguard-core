@@ -231,3 +231,99 @@ TEST_F(CoreInterfaceTest, GetStatusSnapshotReflectsHumanOperation) {
 
     EXPECT_TRUE(snapshot.is_human_operating);
 }
+
+// ============================================================================
+// Phase 3: Event Output テスト
+// ============================================================================
+
+// on_state_changed コールバックが呼ばれる
+TEST_F(CoreInterfaceTest, OnStateChangedCallbackCalled) {
+    CoreState from_state = CoreState::ERROR;
+    CoreState to_state = CoreState::ERROR;
+    int call_count = 0;
+
+    core_->set_on_state_changed([&](CoreState from, CoreState to) {
+        from_state = from;
+        to_state = to;
+        call_count++;
+    });
+
+    core_->start_monitor();
+
+    EXPECT_EQ(call_count, 1);
+    EXPECT_EQ(from_state, CoreState::IDLE);
+    EXPECT_EQ(to_state, CoreState::MONITORING);
+}
+
+// on_state_changed は複数回呼ばれる
+TEST_F(CoreInterfaceTest, OnStateChangedCalledMultipleTimes) {
+    int call_count = 0;
+
+    core_->set_on_state_changed([&](CoreState, CoreState) {
+        call_count++;
+    });
+
+    core_->start_monitor();
+    core_->trigger_intervention();
+    core_->stop_monitor("test");
+
+    EXPECT_EQ(call_count, 3);
+}
+
+// on_intervention_start コールバックが呼ばれる
+TEST_F(CoreInterfaceTest, OnInterventionStartCallbackCalled) {
+    bool called = false;
+
+    core_->set_on_intervention_start([&]() {
+        called = true;
+    });
+
+    core_->start_monitor();
+    EXPECT_FALSE(called);
+
+    core_->trigger_intervention();
+    EXPECT_TRUE(called);
+}
+
+// on_intervention_end コールバックが呼ばれる
+TEST_F(CoreInterfaceTest, OnInterventionEndCallbackCalled) {
+    bool called = false;
+
+    core_->set_on_intervention_end([&]() {
+        called = true;
+    });
+
+    core_->start_monitor();
+    core_->trigger_intervention();
+    EXPECT_FALSE(called);
+
+    core_->end_intervention();
+    EXPECT_TRUE(called);
+}
+
+// on_error コールバックが呼ばれる
+TEST_F(CoreInterfaceTest, OnErrorCallbackCalled) {
+    std::string error_reason;
+
+    core_->set_on_error([&](const std::string& reason) {
+        error_reason = reason;
+    });
+
+    core_->trigger_error("test error message");
+
+    EXPECT_FALSE(error_reason.empty());
+    EXPECT_NE(error_reason.find("test error message"), std::string::npos);
+}
+
+// コールバック未設定でもクラッシュしない
+TEST_F(CoreInterfaceTest, NoCallbacksSetDoesNotCrash) {
+    // コールバック未設定のまま操作
+    core_->start_monitor();
+    core_->trigger_intervention();
+    core_->end_intervention();
+    core_->stop_monitor("test");
+    core_->reset_core();
+    core_->trigger_error("error");
+
+    EXPECT_EQ(core_->get_current_state(), CoreState::ERROR);
+}

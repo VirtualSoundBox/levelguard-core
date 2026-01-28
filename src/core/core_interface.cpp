@@ -194,6 +194,9 @@ void CoreInterface::on_state_change_internal(const TransitionResult& result)
     // DspChainの状態を同期
     dsp_chain_->set_state(result.to_state);
 
+    // HumanOperationDetectorに状態変化を通知（復帰検知用）
+    human_detector_->handle_state_change(result);
+
     // 外部コールバックを発火
     if (on_state_changed_) {
         on_state_changed_(result.from_state, result.to_state);

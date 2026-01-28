@@ -84,6 +84,15 @@ public:
      */
     void reset();
 
+    /**
+     * 状態変化を通知（CoreInterfaceから呼び出される）
+     *
+     * SUSPENDED→MONITORING復帰時に人間操作フラグをクリアする。
+     *
+     * @param result 遷移結果
+     */
+    void handle_state_change(const core::TransitionResult& result);
+
 private:
     core::StateMachine& state_machine_;
 

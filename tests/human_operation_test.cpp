@@ -119,7 +119,8 @@ TEST_F(HumanOperationTest, SuppressionCount) {
     detector_->notify_human_operation("fader_change");
     EXPECT_EQ(detector_->get_suppression_count(), 1u);
 
-    // 復帰して再度介入
+    // 復帰（SUSPENDED → IDLE → MONITORING）
+    sm_->dispatch(CoreEvent::CORE_RESET);
     sm_->dispatch(CoreEvent::CORE_START_MONITOR);
     sm_->dispatch(CoreEvent::CORE_INTERVENTION_START);
 
@@ -220,12 +221,14 @@ TEST_F(HumanOperationTest, NoAutoRecoveryAfterSuspend) {
     // 時間が経過しても自動復帰しない（状態マシンの仕様）
     EXPECT_EQ(sm_->current_state(), CoreState::SUSPENDED);
 
-    // 明示的な操作で復帰
+    // 明示的な操作で復帰（RESET → START_MONITOR）
+    sm_->dispatch(CoreEvent::CORE_RESET);
+    EXPECT_EQ(sm_->current_state(), CoreState::IDLE);
     sm_->dispatch(CoreEvent::CORE_START_MONITOR);
     EXPECT_EQ(sm_->current_state(), CoreState::MONITORING);
 }
 
-// SUSPENDED→MONITORING復帰時にフラグがクリアされる
+// 復帰時（MONITORING状態への遷移）にフラグがクリアされる
 TEST_F(HumanOperationTest, FlagClearedOnRecovery) {
     sm_->dispatch(CoreEvent::CORE_INIT);
     sm_->dispatch(CoreEvent::CORE_START_MONITOR);
@@ -234,10 +237,16 @@ TEST_F(HumanOperationTest, FlagClearedOnRecovery) {
     detector_->notify_human_operation("fader_change");
     EXPECT_TRUE(detector_->is_human_operating());
 
-    // 復帰
-    sm_->dispatch(CoreEvent::CORE_START_MONITOR);
+    // 復帰（RESET → START_MONITOR）
+    sm_->dispatch(CoreEvent::CORE_RESET);
+    EXPECT_EQ(sm_->current_state(), CoreState::IDLE);
+
+    auto result = sm_->dispatch(CoreEvent::CORE_START_MONITOR);
     EXPECT_EQ(sm_->current_state(), CoreState::MONITORING);
 
-    // フラグがクリアされる
+    // CoreInterface経由ではなく直接テストなので、手動でhandle_state_changeを呼ぶ
+    detector_->handle_state_change(result);
+
+    // MONITORING状態への遷移でフラグがクリアされる
     EXPECT_FALSE(detector_->is_human_operating());
 }
