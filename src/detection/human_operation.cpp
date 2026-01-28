@@ -16,11 +16,8 @@ HumanOperationDetector::HumanOperationDetector(core::StateMachine& state_machine
     , is_human_operating_(false)
     , suppression_count_(0)
 {
-    // 状態変化コールバックを登録（復帰検知用）
-    state_machine_.set_on_state_change(
-        [this](const core::TransitionResult& result) {
-            on_state_change(result);
-        });
+    // コールバック登録はCoreInterfaceが管理する
+    // CoreInterface::on_state_change_internal() から handle_state_change() が呼ばれる
 }
 
 bool HumanOperationDetector::notify_human_operation(const std::string& reason)
@@ -85,12 +82,16 @@ void HumanOperationDetector::reset()
     last_operation_reason_.clear();
 }
 
+void HumanOperationDetector::handle_state_change(const core::TransitionResult& result)
+{
+    on_state_change(result);
+}
+
 void HumanOperationDetector::on_state_change(const core::TransitionResult& result)
 {
-    // SUSPENDED→MONITORING復帰時にフラグをクリア
-    if (result.success &&
-        result.from_state == core::CoreState::SUSPENDED &&
-        result.to_state == core::CoreState::MONITORING) {
+    // 監視開始時（MONITORING状態への遷移）にフラグをクリア
+    // RESET経由（SUSPENDED→IDLE→MONITORING）の復帰を考慮
+    if (result.success && result.to_state == core::CoreState::MONITORING) {
         is_human_operating_ = false;
     }
 }
