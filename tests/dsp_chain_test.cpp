@@ -322,12 +322,17 @@ TEST_F(DspChainTest, ResetOnStateChange) {
     DspChain chain(SAMPLE_RATE);
     chain.set_state(CoreState::INTERVENING);
 
+    // コンプレッサーをバイパスしてリミッターへ直接大信号を送る
+    chain.set_compressor_bypass(true);
+    chain.set_gain_controller_bypass(true);
+
     // 大きな信号を処理
     auto input = generate_sine(1000.0f, 1.0f, 0.5f, SAMPLE_RATE);
     for (auto s : input) {
         chain.process(s, s);
     }
 
+    // リミッターがゲイン削減を行っている（閾値-1dB超過）
     EXPECT_LT(chain.get_metrics().limiter_gain_reduction_dB, -0.1f);
 
     // 状態を変更
