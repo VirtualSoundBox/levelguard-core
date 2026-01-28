@@ -29,6 +29,7 @@ add_executable(
   gain_controller_test.cpp
   dsp_chain_test.cpp
   human_operation_test.cpp
+  core_interface_test.cpp
 )
 
 # インクルードパス
@@ -51,6 +52,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/dsp/gain_controller.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/dsp_chain.cpp
     ${CMAKE_SOURCE_DIR}/src/detection/human_operation.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/core_interface.cpp
 )
 
 # Google Test とリンク
