@@ -45,6 +45,13 @@ Sample Compressor::process(Sample input)
     // エンベロープ検出
     float env = detect_envelope(input);
 
+    // エンベロープが非常に小さい場合（無音）はそのまま返す
+    constexpr float MIN_ENVELOPE = 1e-10f;
+    if (env < MIN_ENVELOPE) {
+        // Make-up gainのみ適用
+        return input * makeup_linear_;
+    }
+
     // dBに変換
     float input_dB = linear_to_dB(env);
 
