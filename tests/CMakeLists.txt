@@ -27,6 +27,7 @@ add_executable(
   limiter_test.cpp
   compressor_test.cpp
   gain_controller_test.cpp
+  dsp_chain_test.cpp
 )
 
 # インクルードパス
@@ -47,6 +48,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/dsp/limiter.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/compressor.cpp
     ${CMAKE_SOURCE_DIR}/src/dsp/gain_controller.cpp
+    ${CMAKE_SOURCE_DIR}/src/dsp/dsp_chain.cpp
 )
 
 # Google Test とリンク
