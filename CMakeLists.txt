@@ -45,6 +45,7 @@ target_sources(
     src/dsp/lufs.cpp
     src/dsp/limiter.cpp
     src/dsp/compressor.cpp
+    src/dsp/gain_controller.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
