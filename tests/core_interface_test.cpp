@@ -327,3 +327,135 @@ TEST_F(CoreInterfaceTest, NoCallbacksSetDoesNotCrash) {
 
     EXPECT_EQ(core_->get_current_state(), CoreState::ERROR);
 }
+
+// ============================================================================
+// Phase 4: Integration テスト
+// ============================================================================
+
+// process_audio() は IDLE 状態でパススルー
+TEST_F(CoreInterfaceTest, ProcessAudioPassthroughInIdle) {
+    EXPECT_EQ(core_->get_current_state(), CoreState::IDLE);
+
+    auto [out_l, out_r] = core_->process_audio(0.5f, -0.3f);
+
+    EXPECT_FLOAT_EQ(out_l, 0.5f);
+    EXPECT_FLOAT_EQ(out_r, -0.3f);
+}
+
+// process_audio() は MONITORING 状態でパススルー（計測のみ）
+TEST_F(CoreInterfaceTest, ProcessAudioPassthroughInMonitoring) {
+    core_->start_monitor();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    auto [out_l, out_r] = core_->process_audio(0.5f, -0.3f);
+
+    EXPECT_FLOAT_EQ(out_l, 0.5f);
+    EXPECT_FLOAT_EQ(out_r, -0.3f);
+}
+
+// process_audio() は SUSPENDED 状態でパススルー
+TEST_F(CoreInterfaceTest, ProcessAudioPassthroughInSuspended) {
+    core_->start_monitor();
+    core_->stop_monitor("test");
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+
+    auto [out_l, out_r] = core_->process_audio(0.5f, -0.3f);
+
+    EXPECT_FLOAT_EQ(out_l, 0.5f);
+    EXPECT_FLOAT_EQ(out_r, -0.3f);
+}
+
+// get_latency_samples() はレイテンシーを返す
+TEST_F(CoreInterfaceTest, GetLatencySamplesReturnsLatency) {
+    size_t latency = core_->get_latency_samples();
+
+    // Limiter の lookahead によるレイテンシーがある
+    EXPECT_GT(latency, 0u);
+}
+
+// notify_human_operation() で SUSPENDED に遷移
+TEST_F(CoreInterfaceTest, NotifyHumanOperationTransitionsToSuspended) {
+    core_->start_monitor();
+    core_->trigger_intervention();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    bool result = core_->notify_human_operation("fader_change");
+
+    EXPECT_TRUE(result);
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+}
+
+// notify_human_operation() は StatusSnapshot に反映
+TEST_F(CoreInterfaceTest, NotifyHumanOperationReflectedInSnapshot) {
+    core_->start_monitor();
+
+    auto before = core_->get_status_snapshot();
+    EXPECT_FALSE(before.is_human_operating);
+
+    core_->notify_human_operation("volume_change");
+
+    auto after = core_->get_status_snapshot();
+    EXPECT_TRUE(after.is_human_operating);
+}
+
+// 統合シナリオ：通常運用フロー
+TEST_F(CoreInterfaceTest, IntegrationScenarioNormalOperation) {
+    // 1. 初期状態
+    EXPECT_EQ(core_->get_current_state(), CoreState::IDLE);
+
+    // 2. 監視開始
+    EXPECT_TRUE(core_->start_monitor());
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    // 3. 音声処理（パススルー）
+    auto [l1, r1] = core_->process_audio(0.1f, 0.1f);
+    EXPECT_FLOAT_EQ(l1, 0.1f);
+
+    // 4. 介入開始
+    core_->trigger_intervention();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    // 5. 介入終了
+    core_->end_intervention();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    // 6. 停止
+    EXPECT_TRUE(core_->stop_monitor("end of stream"));
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+
+    // 7. リセット
+    EXPECT_TRUE(core_->reset_core());
+    EXPECT_EQ(core_->get_current_state(), CoreState::IDLE);
+}
+
+// 統合シナリオ：人間操作による中断
+TEST_F(CoreInterfaceTest, IntegrationScenarioHumanInterrupt) {
+    int state_change_count = 0;
+    core_->set_on_state_changed([&](CoreState, CoreState) {
+        state_change_count++;
+    });
+
+    // 監視開始 → 介入中
+    core_->start_monitor();
+    core_->trigger_intervention();
+    EXPECT_EQ(state_change_count, 2);
+
+    // 人間操作で中断
+    core_->notify_human_operation("manual_adjustment");
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+    EXPECT_EQ(state_change_count, 3);
+
+    // スナップショット確認
+    auto snapshot = core_->get_status_snapshot();
+    EXPECT_EQ(snapshot.state, CoreState::SUSPENDED);
+    EXPECT_TRUE(snapshot.is_human_operating);
+
+    // 復帰
+    core_->reset_core();
+    core_->start_monitor();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    // 人間操作フラグがクリア
+    snapshot = core_->get_status_snapshot();
+    EXPECT_FALSE(snapshot.is_human_operating);
+}
