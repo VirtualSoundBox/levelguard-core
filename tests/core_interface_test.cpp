@@ -165,3 +165,69 @@ TEST_F(CoreInterfaceTest, ResetCoreFromMonitoringFails) {
     EXPECT_FALSE(result);
     EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
 }
+
+// ============================================================================
+// Phase 2: Query Interface テスト
+// ============================================================================
+
+// get_current_state() は現在の状態を返す
+TEST_F(CoreInterfaceTest, GetCurrentStateReturnsCurrentState) {
+    EXPECT_EQ(core_->get_current_state(), CoreState::IDLE);
+
+    core_->start_monitor();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    core_->trigger_intervention();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    core_->stop_monitor("test");
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+}
+
+// get_last_event() は最後のイベントを返す
+TEST_F(CoreInterfaceTest, GetLastEventReturnsLastEvent) {
+    core_->start_monitor();
+
+    auto last_event = core_->get_last_event();
+
+    ASSERT_TRUE(last_event.has_value());
+    EXPECT_EQ(last_event->event, CoreEvent::CORE_START_MONITOR);
+    EXPECT_EQ(last_event->from_state, CoreState::IDLE);
+    EXPECT_EQ(last_event->to_state, CoreState::MONITORING);
+}
+
+// get_last_event() は複数遷移後も最新を返す
+TEST_F(CoreInterfaceTest, GetLastEventReturnsLatestAfterMultipleTransitions) {
+    core_->start_monitor();
+    core_->trigger_intervention();
+    core_->stop_monitor("test");
+
+    auto last_event = core_->get_last_event();
+
+    ASSERT_TRUE(last_event.has_value());
+    EXPECT_EQ(last_event->event, CoreEvent::CORE_STOP_MONITOR);
+    EXPECT_EQ(last_event->from_state, CoreState::INTERVENING);
+    EXPECT_EQ(last_event->to_state, CoreState::SUSPENDED);
+}
+
+// get_status_snapshot() は状態情報を含む
+TEST_F(CoreInterfaceTest, GetStatusSnapshotContainsStateInfo) {
+    core_->start_monitor();
+
+    auto snapshot = core_->get_status_snapshot();
+
+    EXPECT_EQ(snapshot.state, CoreState::MONITORING);
+    EXPECT_FALSE(snapshot.is_human_operating);
+    EXPECT_FALSE(snapshot.clipping_risk_detected);
+    EXPECT_FALSE(snapshot.overload_risk_detected);
+}
+
+// get_status_snapshot() は人間操作フラグを反映
+TEST_F(CoreInterfaceTest, GetStatusSnapshotReflectsHumanOperation) {
+    core_->start_monitor();
+    core_->notify_human_operation("volume change");
+
+    auto snapshot = core_->get_status_snapshot();
+
+    EXPECT_TRUE(snapshot.is_human_operating);
+}
