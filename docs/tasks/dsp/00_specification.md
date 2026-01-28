@@ -74,7 +74,7 @@ DSP処理は **2つのレベル** に分かれる：
 | Attack | 10 〜 30ms | アタック感を残す |
 | Release | 80 〜 150ms | 自然な復帰 |
 | Knee | Soft | 滑らかな遷移 |
-| Threshold | 可変（LUFS基準） | 曲の平均音量に追従 |
+| Threshold | -20 dB（固定） | GainControllerがLUFS追従を担当 |
 
 **禁止事項**:
 - 抑揚の均し
@@ -156,3 +156,11 @@ gain += clamp(error * k, -0.5dB/s, +0.5dB/s)
 - [spec-dsp.md](../../../../levelguard-docs/internal/spec-dsp.md) - DSP仕様書
 - [03_behavior.md](../../03_behavior.md) - 振る舞い定義
 - [08_core_state_transition.md](../../08_core_state_transition.md) - 状態遷移
+
+---
+
+## 変更履歴
+
+| 日付 | 変更内容 | 理由 |
+|------|----------|------|
+| 2025-01-29 | コンプレッサー Threshold を「可変（LUFS基準）」から「-20 dB（固定）」に変更 | GainControllerがLUFS追従による長期レベル調整を担当するため、コンプレッサーは固定閾値でダイナミクス制御に専念。役割分担の明確化とCoreの「シンプルで安全」という設計思想に基づく決定。 |
