@@ -11,14 +11,15 @@
 namespace levelguard {
 namespace core {
 
-CoreInterface::CoreInterface(const CoreConfig& config)
+CoreInterface::CoreInterface(const CoreConfig& config, LoggerPtr logger)
     : sample_rate_(config.sample_rate)
     , enabled_(config.enabled)
+    , logger_(logger)
     , clipping_risk_detected_(false)
     , overload_risk_detected_(false)
 {
-    // StateMachine を作成
-    state_machine_ = std::make_unique<StateMachine>();
+    // StateMachine を作成（Logger を渡す）
+    state_machine_ = std::make_unique<StateMachine>(logger_);
 
     // 状態変化コールバックを登録
     state_machine_->set_on_state_change(
@@ -36,11 +37,17 @@ CoreInterface::CoreInterface(const CoreConfig& config)
     if (!config.validate()) {
         state_machine_->dispatch(CoreEvent::CORE_INIT, "CoreInterface initialized");
         state_machine_->dispatch(CoreEvent::CORE_ERROR, "Invalid configuration");
+        if (logger_) {
+            logger_->log_error("CoreInterface initialization failed: invalid configuration");
+        }
         return;
     }
 
     // CORE_INIT を発行して初期化完了
     state_machine_->dispatch(CoreEvent::CORE_INIT, "CoreInterface initialized");
+    if (logger_) {
+        logger_->log_lifecycle(CoreEvent::CORE_INIT, CoreState::IDLE, CoreState::IDLE);
+    }
 }
 
 CoreInterface::CoreInterface(float sample_rate)

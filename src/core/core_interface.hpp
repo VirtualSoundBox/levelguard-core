@@ -64,8 +64,9 @@ public:
      * コンストラクタ（CoreConfig 経由）
      *
      * @param config 設定構造体
+     * @param logger ロガー（省略時はログなし）
      */
-    explicit CoreInterface(const CoreConfig& config);
+    explicit CoreInterface(const CoreConfig& config, LoggerPtr logger = nullptr);
 
     /**
      * コンストラクタ（既存互換）
@@ -185,6 +186,7 @@ public:
 private:
     float sample_rate_;
     bool enabled_;
+    LoggerPtr logger_;
 
     std::unique_ptr<StateMachine> state_machine_;
     std::unique_ptr<dsp::DspChain> dsp_chain_;
