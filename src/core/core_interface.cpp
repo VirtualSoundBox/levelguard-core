@@ -11,8 +11,8 @@
 namespace levelguard {
 namespace core {
 
-CoreInterface::CoreInterface(float sample_rate)
-    : sample_rate_(sample_rate)
+CoreInterface::CoreInterface(const CoreConfig& config)
+    : sample_rate_(config.sample_rate)
     , clipping_risk_detected_(false)
     , overload_risk_detected_(false)
 {
@@ -26,13 +26,25 @@ CoreInterface::CoreInterface(float sample_rate)
         });
 
     // DspChain を作成
-    dsp_chain_ = std::make_unique<dsp::DspChain>(sample_rate);
+    dsp_chain_ = std::make_unique<dsp::DspChain>(config.sample_rate);
 
     // HumanOperationDetector を作成
     human_detector_ = std::make_unique<detection::HumanOperationDetector>(*state_machine_);
 
+    // Config検証
+    if (!config.validate()) {
+        state_machine_->dispatch(CoreEvent::CORE_INIT, "CoreInterface initialized");
+        state_machine_->dispatch(CoreEvent::CORE_ERROR, "Invalid configuration");
+        return;
+    }
+
     // CORE_INIT を発行して初期化完了
     state_machine_->dispatch(CoreEvent::CORE_INIT, "CoreInterface initialized");
+}
+
+CoreInterface::CoreInterface(float sample_rate)
+    : CoreInterface(CoreConfig{sample_rate, true})
+{
 }
 
 // =============================================================================
