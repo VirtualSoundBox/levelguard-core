@@ -257,3 +257,71 @@ TEST(CoreConfigTest, StateTransitionLogRecorded) {
     }
     EXPECT_TRUE(has_lifecycle);
 }
+
+// =============================================================================
+// Phase 6: 統合テスト
+// =============================================================================
+
+TEST(CoreConfigTest, IntegrationFullFlow) {
+    CoreConfig config;
+    config.sample_rate = 48000.0f;
+    config.enabled = true;
+
+    CoreInterface core(config);
+
+    // 初期化 → IDLE
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+
+    // 監視開始 → MONITORING
+    EXPECT_TRUE(core.start_monitor());
+    EXPECT_EQ(core.get_current_state(), CoreState::MONITORING);
+
+    // 介入開始 → INTERVENING
+    core.trigger_intervention();
+    EXPECT_EQ(core.get_current_state(), CoreState::INTERVENING);
+
+    // 介入終了 → MONITORING
+    core.end_intervention();
+    EXPECT_EQ(core.get_current_state(), CoreState::MONITORING);
+
+    // 停止 → SUSPENDED
+    EXPECT_TRUE(core.stop_monitor());
+    EXPECT_EQ(core.get_current_state(), CoreState::SUSPENDED);
+
+    // リセット → IDLE
+    EXPECT_TRUE(core.reset_core());
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+}
+
+TEST(CoreConfigTest, IntegrationFailureRecoveryFlow) {
+    // 無効Config → ERROR
+    CoreConfig invalid_config;
+    invalid_config.sample_rate = 0.0f;
+
+    CoreInterface core(invalid_config);
+    EXPECT_EQ(core.get_current_state(), CoreState::ERROR);
+
+    // パススルー確認
+    auto [left, right] = core.process_audio(0.5f, -0.5f);
+    EXPECT_FLOAT_EQ(left, 0.5f);
+    EXPECT_FLOAT_EQ(right, -0.5f);
+
+    // reset → IDLE
+    EXPECT_TRUE(core.reset_core());
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+}
+
+TEST(CoreConfigTest, AllExistingTestsStillPass) {
+    // 既存互換: float コンストラクタ
+    CoreInterface core(48000.0f);
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+
+    EXPECT_TRUE(core.start_monitor());
+    EXPECT_EQ(core.get_current_state(), CoreState::MONITORING);
+
+    EXPECT_TRUE(core.stop_monitor());
+    EXPECT_EQ(core.get_current_state(), CoreState::SUSPENDED);
+
+    EXPECT_TRUE(core.reset_core());
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+}
