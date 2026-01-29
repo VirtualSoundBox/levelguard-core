@@ -11,6 +11,7 @@
 #include "state.hpp"
 #include "event.hpp"
 #include "state_machine.hpp"
+#include "core_config.hpp"
 #include "../dsp/dsp_chain.hpp"
 #include "../detection/human_operation.hpp"
 #include <memory>
@@ -60,7 +61,14 @@ using ErrorCallback = std::function<void(const std::string& reason)>;
 class CoreInterface {
 public:
     /**
-     * コンストラクタ
+     * コンストラクタ（CoreConfig 経由）
+     *
+     * @param config 設定構造体
+     */
+    explicit CoreInterface(const CoreConfig& config);
+
+    /**
+     * コンストラクタ（既存互換）
      *
      * @param sample_rate サンプルレート（Hz）
      */
