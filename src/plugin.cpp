@@ -12,6 +12,7 @@
 
 #include "core/core_config.hpp"
 #include "core/core_interface.hpp"
+#include "core/obs_logger.hpp"
 
 #include <memory>
 
@@ -51,8 +52,9 @@ static void *levelguard_filter_create(obs_data_t *settings, obs_source_t *source
 	config.sample_rate = sample_rate;
 	config.enabled = obs_data_get_bool(settings, "enabled");
 
-	// CoreInterface を生成
-	filter->core = std::make_unique<levelguard::core::CoreInterface>(config);
+	// CoreInterface を生成（OBS Logger 付き）
+	auto logger = std::make_shared<levelguard::core::ObsLogger>();
+	filter->core = std::make_unique<levelguard::core::CoreInterface>(config, logger);
 
 	// 監視開始
 	filter->core->start_monitor();
@@ -104,6 +106,48 @@ static struct obs_audio_data *levelguard_filter_audio(void *data, struct obs_aud
 }
 
 // =============================================================================
+// プロパティ
+// =============================================================================
+
+static obs_properties_t *levelguard_filter_get_properties(void *)
+{
+	obs_properties_t *props = obs_properties_create();
+
+	obs_properties_add_bool(props, "enabled", "LevelGuard を有効にする");
+
+	return props;
+}
+
+static void levelguard_filter_update(void *data, obs_data_t *settings)
+{
+	auto *filter = static_cast<levelguard_filter_data *>(data);
+
+	bool enabled = obs_data_get_bool(settings, "enabled");
+
+	// CoreInterface を再生成して enabled を反映
+	if (filter->core) {
+		filter->core->stop_monitor();
+	}
+
+	audio_t *audio = obs_get_audio();
+	const struct audio_output_info *aoi = audio_output_get_info(audio);
+	float sample_rate = aoi ? static_cast<float>(aoi->samples_per_sec) : 48000.0f;
+
+	levelguard::core::CoreConfig config;
+	config.sample_rate = sample_rate;
+	config.enabled = enabled;
+
+	auto logger = std::make_shared<levelguard::core::ObsLogger>();
+	filter->core = std::make_unique<levelguard::core::CoreInterface>(config, logger);
+
+	if (enabled) {
+		filter->core->start_monitor();
+	}
+
+	obs_log(LOG_INFO, "LevelGuard filter updated (enabled=%s)", enabled ? "true" : "false");
+}
+
+// =============================================================================
 // デフォルト設定
 // =============================================================================
 
@@ -133,6 +177,8 @@ bool obs_module_load(void)
 	levelguard_filter_info.destroy = levelguard_filter_destroy;
 	levelguard_filter_info.filter_audio = levelguard_filter_audio;
 	levelguard_filter_info.get_defaults = levelguard_filter_get_defaults;
+	levelguard_filter_info.get_properties = levelguard_filter_get_properties;
+	levelguard_filter_info.update = levelguard_filter_update;
 
 	obs_register_source(&levelguard_filter_info);
 
