@@ -13,6 +13,7 @@ namespace core {
 
 CoreInterface::CoreInterface(const CoreConfig& config)
     : sample_rate_(config.sample_rate)
+    , enabled_(config.enabled)
     , clipping_risk_detected_(false)
     , overload_risk_detected_(false)
 {
@@ -53,6 +54,10 @@ CoreInterface::CoreInterface(float sample_rate)
 
 bool CoreInterface::start_monitor()
 {
+    if (!enabled_) {
+        return false;
+    }
+
     auto result = state_machine_->dispatch(CoreEvent::CORE_START_MONITOR);
 
     if (result.success) {
@@ -185,6 +190,10 @@ void CoreInterface::set_on_error(ErrorCallback callback)
 
 std::pair<float, float> CoreInterface::process_audio(float left, float right)
 {
+    if (!enabled_) {
+        return {left, right};
+    }
+
     return dsp_chain_->process(left, right);
 }
 

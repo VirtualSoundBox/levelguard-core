@@ -125,3 +125,40 @@ TEST(CoreConfigTest, InvalidConfigProcessAudioPassthrough) {
     EXPECT_FLOAT_EQ(left, 0.5f);
     EXPECT_FLOAT_EQ(right, -0.3f);
 }
+
+// =============================================================================
+// Phase 4: enabled フラグ
+// =============================================================================
+
+TEST(CoreConfigTest, EnabledTrueNormalOperation) {
+    CoreConfig config;
+    config.sample_rate = 48000.0f;
+    config.enabled = true;
+
+    CoreInterface core(config);
+    EXPECT_TRUE(core.start_monitor());
+    EXPECT_EQ(core.get_current_state(), CoreState::MONITORING);
+}
+
+TEST(CoreConfigTest, EnabledFalseStartMonitorRejected) {
+    CoreConfig config;
+    config.sample_rate = 48000.0f;
+    config.enabled = false;
+
+    CoreInterface core(config);
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+    EXPECT_FALSE(core.start_monitor());
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+}
+
+TEST(CoreConfigTest, EnabledFalseProcessAudioPassthrough) {
+    CoreConfig config;
+    config.sample_rate = 48000.0f;
+    config.enabled = false;
+
+    CoreInterface core(config);
+
+    auto [left, right] = core.process_audio(0.7f, -0.4f);
+    EXPECT_FLOAT_EQ(left, 0.7f);
+    EXPECT_FLOAT_EQ(right, -0.4f);
+}

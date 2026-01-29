@@ -184,6 +184,7 @@ public:
 
 private:
     float sample_rate_;
+    bool enabled_;
 
     std::unique_ptr<StateMachine> state_machine_;
     std::unique_ptr<dsp::DspChain> dsp_chain_;
