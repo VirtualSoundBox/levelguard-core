@@ -160,7 +160,23 @@ static void levelguard_filter_get_defaults(obs_data_t *settings)
 // フィルター登録
 // =============================================================================
 
-static struct obs_source_info levelguard_filter_info = {};
+static obs_source_info levelguard_filter_info;
+
+static void init_filter_info()
+{
+	memset(&levelguard_filter_info, 0, sizeof(levelguard_filter_info));
+
+	levelguard_filter_info.id             = "levelguard_core_filter";
+	levelguard_filter_info.type           = OBS_SOURCE_TYPE_FILTER;
+	levelguard_filter_info.output_flags   = OBS_SOURCE_AUDIO;
+	levelguard_filter_info.get_name       = levelguard_filter_get_name;
+	levelguard_filter_info.create         = levelguard_filter_create;
+	levelguard_filter_info.destroy        = levelguard_filter_destroy;
+	levelguard_filter_info.update         = levelguard_filter_update;
+	levelguard_filter_info.filter_audio   = levelguard_filter_audio;
+	levelguard_filter_info.get_defaults   = levelguard_filter_get_defaults;
+	levelguard_filter_info.get_properties = levelguard_filter_get_properties;
+}
 
 const char *obs_module_description(void)
 {
@@ -169,17 +185,7 @@ const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
-	levelguard_filter_info.id = "levelguard_core_filter";
-	levelguard_filter_info.type = OBS_SOURCE_TYPE_FILTER;
-	levelguard_filter_info.output_flags = OBS_SOURCE_AUDIO;
-	levelguard_filter_info.get_name = levelguard_filter_get_name;
-	levelguard_filter_info.create = levelguard_filter_create;
-	levelguard_filter_info.destroy = levelguard_filter_destroy;
-	levelguard_filter_info.filter_audio = levelguard_filter_audio;
-	levelguard_filter_info.get_defaults = levelguard_filter_get_defaults;
-	levelguard_filter_info.get_properties = levelguard_filter_get_properties;
-	levelguard_filter_info.update = levelguard_filter_update;
-
+	init_filter_info();
 	obs_register_source(&levelguard_filter_info);
 
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
