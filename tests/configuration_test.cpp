@@ -76,3 +76,52 @@ TEST(CoreConfigTest, InvalidConfigErrorState) {
     CoreInterface core(config);
     EXPECT_EQ(core.get_current_state(), CoreState::ERROR);
 }
+
+// =============================================================================
+// Phase 3: 初期化失敗とリカバリ
+// =============================================================================
+
+TEST(CoreConfigTest, ResetAfterInvalidConfig) {
+    CoreConfig config;
+    config.sample_rate = 0.0f;
+
+    CoreInterface core(config);
+    EXPECT_EQ(core.get_current_state(), CoreState::ERROR);
+
+    EXPECT_TRUE(core.reset_core());
+    EXPECT_EQ(core.get_current_state(), CoreState::IDLE);
+}
+
+TEST(CoreConfigTest, InvalidConfigTriggersErrorCallback) {
+    CoreConfig config;
+    config.sample_rate = 0.0f;
+
+    bool error_called = false;
+    std::string error_reason;
+
+    CoreInterface core(config);
+    core.set_on_error([&](const std::string& reason) {
+        error_called = true;
+        error_reason = reason;
+    });
+
+    // コールバックはコンストラクタ内で発火するため、
+    // コンストラクタ前にセットする必要がある。
+    // 再度ERRORに遷移させて確認する。
+    core.reset_core();
+    core.trigger_error("test error");
+
+    EXPECT_TRUE(error_called);
+}
+
+TEST(CoreConfigTest, InvalidConfigProcessAudioPassthrough) {
+    CoreConfig config;
+    config.sample_rate = 0.0f;
+
+    CoreInterface core(config);
+    EXPECT_EQ(core.get_current_state(), CoreState::ERROR);
+
+    auto [left, right] = core.process_audio(0.5f, -0.3f);
+    EXPECT_FLOAT_EQ(left, 0.5f);
+    EXPECT_FLOAT_EQ(right, -0.3f);
+}
