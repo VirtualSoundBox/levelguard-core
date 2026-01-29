@@ -30,6 +30,7 @@ add_executable(
   dsp_chain_test.cpp
   human_operation_test.cpp
   core_interface_test.cpp
+  configuration_test.cpp
 )
 
 # インクルードパス
