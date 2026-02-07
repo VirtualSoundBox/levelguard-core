@@ -108,6 +108,7 @@ private:
 
     bool is_intervening_;
     bool human_operation_detected_;
+    bool restart_blocked_;  // タイムアウト後の再介入ブロック
     size_t intervention_samples_;
     size_t max_intervention_samples_;  // 30秒
 

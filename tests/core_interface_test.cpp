@@ -7,6 +7,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <cmath>
 
 #include "core/core_interface.hpp"
 
@@ -458,4 +459,191 @@ TEST_F(CoreInterfaceTest, IntegrationScenarioHumanInterrupt) {
     // 人間操作フラグがクリア
     snapshot = core_->get_status_snapshot();
     EXPECT_FALSE(snapshot.is_human_operating);
+}
+
+// ============================================================================
+// Phase 4.4: 自動介入テスト
+// ============================================================================
+
+namespace {
+
+float db_to_linear(float db) {
+    return std::powf(10.0f, db / 20.0f);
+}
+
+} // namespace
+
+class AutoInterventionTest : public ::testing::Test {
+protected:
+    static constexpr float SAMPLE_RATE = 48000.0f;
+
+    void SetUp() override {
+        core_ = std::make_unique<CoreInterface>(SAMPLE_RATE);
+    }
+
+    size_t ms_to_samples(float ms) const {
+        return static_cast<size_t>(ms * SAMPLE_RATE / 1000.0f);
+    }
+
+    size_t sec_to_samples(float sec) const {
+        return static_cast<size_t>(sec * SAMPLE_RATE);
+    }
+
+    // ベースラインを確立する（10秒分の処理）
+    void establish_baseline(float level = 0.1f) {
+        size_t samples = sec_to_samples(10.5f);
+        for (size_t i = 0; i < samples; ++i) {
+            core_->process_audio(level, level);
+        }
+    }
+
+    // リスクを発生させる（ピーク>-3dB を 100ms以上継続）
+    void trigger_risk() {
+        float high_peak = db_to_linear(-2.0f);
+        size_t samples = ms_to_samples(110.0f);
+        for (size_t i = 0; i < samples; ++i) {
+            core_->process_audio(high_peak, high_peak);
+        }
+    }
+
+    // 安全域に戻す（1000ms以上）
+    void make_safe() {
+        float low_level = 0.1f;
+        size_t samples = ms_to_samples(1100.0f);
+        for (size_t i = 0; i < samples; ++i) {
+            core_->process_audio(low_level, low_level);
+        }
+    }
+
+    std::unique_ptr<CoreInterface> core_;
+};
+
+// リスク検出で自動介入開始
+TEST_F(AutoInterventionTest, AutoInterventionOnRisk) {
+    core_->start_monitor();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    // ベースライン確立
+    establish_baseline();
+
+    // リスク発生
+    trigger_risk();
+
+    // 自動的にINTERVENINGに遷移
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+}
+
+// 安全域復帰で自動介入終了
+TEST_F(AutoInterventionTest, AutoEndOnSafeReturn) {
+    core_->start_monitor();
+    establish_baseline();
+    trigger_risk();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    // 安全域に復帰
+    make_safe();
+
+    // 自動的にMONITORINGに復帰
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+}
+
+// 30秒で自動介入終了
+TEST_F(AutoInterventionTest, AutoEndOnTimeout) {
+    core_->start_monitor();
+    establish_baseline();
+    trigger_risk();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    // 30秒間リスク継続
+    float high_peak = db_to_linear(-2.0f);
+    size_t samples = sec_to_samples(30.5f);
+    for (size_t i = 0; i < samples; ++i) {
+        core_->process_audio(high_peak, high_peak);
+    }
+
+    // タイムアウトでMONITORINGに復帰
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+}
+
+// 人間操作で自動介入終了
+TEST_F(AutoInterventionTest, AutoEndOnHumanOperation) {
+    core_->start_monitor();
+    establish_baseline();
+    trigger_risk();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    // 人間操作
+    core_->notify_human_operation("fader_change");
+
+    // SUSPENDEDに遷移（人間操作による）
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+}
+
+// ベースライン確立前は自動介入しない
+TEST_F(AutoInterventionTest, NoAutoInterventionBeforeBaseline) {
+    core_->start_monitor();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+
+    // ベースライン未確立でリスク発生
+    trigger_risk();
+
+    // MONITORINGのまま（自動介入しない）
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
+}
+
+// 人間操作中は自動介入しない
+TEST_F(AutoInterventionTest, NoAutoInterventionDuringHumanOp) {
+    core_->start_monitor();
+    establish_baseline();
+
+    // 人間操作を通知（SUSPENDEDに遷移）
+    core_->notify_human_operation("adjustment");
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+
+    // 復帰してMONITORINGへ
+    core_->reset_core();
+    core_->start_monitor();
+
+    // 再度人間操作を通知（今度はMONITORING中）
+    core_->notify_human_operation("adjustment");
+
+    // リスク発生
+    trigger_risk();
+
+    // SUSPENDEDのまま（自動介入しない）
+    EXPECT_EQ(core_->get_current_state(), CoreState::SUSPENDED);
+}
+
+// リスク状態がStatusSnapshotに反映
+TEST_F(AutoInterventionTest, StatusSnapshotReflectsRisk) {
+    core_->start_monitor();
+
+    auto before = core_->get_status_snapshot();
+    EXPECT_FALSE(before.clipping_risk_detected);
+    EXPECT_FALSE(before.overload_risk_detected);
+
+    establish_baseline();
+    trigger_risk();
+
+    auto after = core_->get_status_snapshot();
+    EXPECT_TRUE(after.clipping_risk_detected);
+}
+
+// リセットでDecisionEngineもリセット
+TEST_F(AutoInterventionTest, ResetClearsDecisionEngine) {
+    core_->start_monitor();
+    establish_baseline();
+    trigger_risk();
+    EXPECT_EQ(core_->get_current_state(), CoreState::INTERVENING);
+
+    // 停止してリセット
+    core_->stop_monitor("test");
+    core_->reset_core();
+
+    // 再開
+    core_->start_monitor();
+
+    // ベースライン未確立に戻っているので、リスク発生しても介入しない
+    trigger_risk();
+    EXPECT_EQ(core_->get_current_state(), CoreState::MONITORING);
 }

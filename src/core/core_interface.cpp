@@ -15,8 +15,6 @@ CoreInterface::CoreInterface(const CoreConfig& config, LoggerPtr logger)
     : sample_rate_(config.sample_rate)
     , enabled_(config.enabled)
     , logger_(logger)
-    , clipping_risk_detected_(false)
-    , overload_risk_detected_(false)
 {
     // StateMachine を作成（Logger を渡す）
     state_machine_ = std::make_unique<StateMachine>(logger_);
@@ -32,6 +30,9 @@ CoreInterface::CoreInterface(const CoreConfig& config, LoggerPtr logger)
 
     // HumanOperationDetector を作成
     human_detector_ = std::make_unique<detection::HumanOperationDetector>(*state_machine_);
+
+    // DecisionEngine を作成
+    decision_engine_ = std::make_unique<DecisionEngine>(config.sample_rate);
 
     // Config検証
     if (!config.validate()) {
@@ -94,8 +95,7 @@ bool CoreInterface::reset_core()
     if (result.success) {
         dsp_chain_->set_state(CoreState::IDLE);
         human_detector_->reset();
-        clipping_risk_detected_ = false;
-        overload_risk_detected_ = false;
+        decision_engine_->reset();
     }
 
     return result.success;
@@ -132,6 +132,7 @@ void CoreInterface::trigger_error(const std::string& reason)
 
 bool CoreInterface::notify_human_operation(const std::string& reason)
 {
+    decision_engine_->notify_human_operation();
     return human_detector_->notify_human_operation(reason);
 }
 
@@ -155,8 +156,11 @@ StatusSnapshot CoreInterface::get_status_snapshot() const
 
     snapshot.state = state_machine_->current_state();
     snapshot.is_human_operating = human_detector_->is_human_operating();
-    snapshot.clipping_risk_detected = clipping_risk_detected_;
-    snapshot.overload_risk_detected = overload_risk_detected_;
+
+    // DecisionEngineからリスク状態を取得
+    auto risk_status = decision_engine_->get_risk_status();
+    snapshot.clipping_risk_detected = risk_status.clipping_risk;
+    snapshot.overload_risk_detected = risk_status.overload_risk;
 
     auto metrics = dsp_chain_->get_metrics();
     snapshot.short_term_lufs = metrics.short_term_lufs;
@@ -201,7 +205,26 @@ std::pair<float, float> CoreInterface::process_audio(float left, float right)
         return {left, right};
     }
 
-    return dsp_chain_->process(left, right);
+    // DSP処理
+    auto [out_left, out_right] = dsp_chain_->process(left, right);
+    auto metrics = dsp_chain_->get_metrics();
+
+    // 判断エンジン更新
+    decision_engine_->process(left, right, metrics);
+
+    // 自動介入開始
+    if (decision_engine_->should_start_intervention()) {
+        trigger_intervention();
+        decision_engine_->notify_intervention_started();
+    }
+
+    // 自動介入終了
+    if (decision_engine_->should_end_intervention()) {
+        end_intervention();
+        decision_engine_->notify_intervention_ended();
+    }
+
+    return {out_left, out_right};
 }
 
 size_t CoreInterface::get_latency_samples() const
