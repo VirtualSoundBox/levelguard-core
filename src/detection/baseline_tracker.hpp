@@ -64,6 +64,10 @@ private:
 
     size_t update_count_;
     size_t establishment_threshold_;  // 確立に必要な更新回数
+
+    // ベースライン上限（EBU R128基準）
+    // 大音量で有効化した場合でも、この値を超えないよう制限する
+    static constexpr float BASELINE_UPPER_LIMIT = -14.0f;
 };
 
 } // namespace detection

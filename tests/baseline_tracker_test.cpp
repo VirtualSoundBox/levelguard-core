@@ -147,18 +147,19 @@ TEST_F(BaselineTrackerTest, ContinuousUpdate) {
     // 確立するまで更新
     size_t updates_for_10_seconds = static_cast<size_t>(SAMPLE_RATE * 10.0f);
     for (size_t i = 0; i < updates_for_10_seconds; ++i) {
-        tracker.update(-14.0f, -14.0f);
+        tracker.update(-16.0f, -16.0f);
     }
     EXPECT_TRUE(tracker.is_established());
-    EXPECT_FLOAT_EQ(tracker.get_baseline_lufs(), -14.0f);
+    EXPECT_FLOAT_EQ(tracker.get_baseline_lufs(), -16.0f);
 
     // 更に更新（Integrated LUFSが変化）
+    // ベースライン上限（-14dB）以下の値を使用
     for (size_t i = 0; i < updates_for_10_seconds; ++i) {
-        tracker.update(-10.0f, -12.0f);
+        tracker.update(-14.0f, -18.0f);
     }
 
     // ベースラインが新しいIntegratedに追従
-    EXPECT_FLOAT_EQ(tracker.get_baseline_lufs(), -12.0f);
+    EXPECT_FLOAT_EQ(tracker.get_baseline_lufs(), -18.0f);
 }
 
 // Short-term LUFSが-infの場合、deviation=0
@@ -198,4 +199,47 @@ TEST_F(BaselineTrackerTest, PositiveAndNegativeDeviation) {
     // 負の逸脱（小さい）
     tracker.update(-20.0f, baseline);
     EXPECT_FLOAT_EQ(tracker.get_deviation_dB(), -6.0f);
+}
+
+// ============================================================================
+// ベースライン上限テスト
+// ============================================================================
+
+// ベースラインは-14dBを超えない
+TEST_F(BaselineTrackerTest, BaselineUpperLimit) {
+    BaselineTracker tracker(SAMPLE_RATE);
+
+    // 大音量（-5dB）で有効化した場合をシミュレート
+    float loud_integrated = -5.0f;
+
+    size_t updates_for_10_seconds = static_cast<size_t>(SAMPLE_RATE * 10.0f);
+    for (size_t i = 0; i < updates_for_10_seconds; ++i) {
+        tracker.update(loud_integrated, loud_integrated);
+    }
+
+    EXPECT_TRUE(tracker.is_established());
+    // ベースラインは-14dBを超えない（上限が適用される）
+    EXPECT_LE(tracker.get_baseline_lufs(), -14.0f);
+}
+
+// 大音量で開始しても正しく逸脱検出できる
+TEST_F(BaselineTrackerTest, DeviationDetectedWithLoudStart) {
+    BaselineTracker tracker(SAMPLE_RATE);
+
+    // 大音量（-5dB）で開始
+    float loud_lufs = -5.0f;
+
+    size_t updates_for_10_seconds = static_cast<size_t>(SAMPLE_RATE * 10.0f);
+    for (size_t i = 0; i < updates_for_10_seconds; ++i) {
+        tracker.update(loud_lufs, loud_lufs);
+    }
+
+    EXPECT_TRUE(tracker.is_established());
+    // ベースラインは-14dBに制限される
+    float expected_baseline = -14.0f;
+    EXPECT_FLOAT_EQ(tracker.get_baseline_lufs(), expected_baseline);
+
+    // 大音量のまま→偏差 = -5 - (-14) = +9dB
+    float expected_deviation = loud_lufs - expected_baseline;
+    EXPECT_FLOAT_EQ(tracker.get_deviation_dB(), expected_deviation);
 }
