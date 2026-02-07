@@ -23,7 +23,7 @@ RiskDetector::RiskDetector(float sample_rate)
     safe_threshold_ = static_cast<size_t>(sample_rate_ * 1.0f);         // 1000ms
 }
 
-void RiskDetector::process(float left, float right, const dsp::DspMetrics& metrics)
+void RiskDetector::process(float left, float right, const dsp::DspMetrics& metrics, float baseline_lufs)
 {
     // 1. クリッピングリスク判定
     float peak = std::max(std::fabsf(left), std::fabsf(right));
@@ -35,9 +35,9 @@ void RiskDetector::process(float left, float right, const dsp::DspMetrics& metri
     clipping_risk_ = (peak_risk_samples_ >= peak_risk_threshold_);
 
     // 2. オーバーロードリスク判定
-    // Integrated LUFS が有効な場合のみ判定
-    if (metrics.integrated_lufs > -std::numeric_limits<float>::infinity()) {
-        float deviation = metrics.short_term_lufs - metrics.integrated_lufs;
+    // ベースラインが有効な場合のみ判定（上限適用済みのbaselineを使用）
+    if (baseline_lufs > -std::numeric_limits<float>::infinity()) {
+        float deviation = metrics.short_term_lufs - baseline_lufs;
         if (deviation > kLufsDeviationThreshold) {
             lufs_risk_samples_++;
         } else {

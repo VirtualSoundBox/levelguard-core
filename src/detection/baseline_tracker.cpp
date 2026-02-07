@@ -7,6 +7,7 @@
  */
 
 #include "baseline_tracker.hpp"
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -31,7 +32,8 @@ void BaselineTracker::update(float short_term_lufs, float integrated_lufs)
     // Integrated LUFS が有効な場合のみ更新
     if (integrated_lufs > -std::numeric_limits<float>::infinity()) {
         update_count_++;
-        baseline_lufs_ = integrated_lufs;
+        // ベースライン上限を適用（大音量で有効化した場合の対策）
+        baseline_lufs_ = std::min(integrated_lufs, BASELINE_UPPER_LIMIT);
 
         if (!established_ && update_count_ >= establishment_threshold_) {
             established_ = true;
