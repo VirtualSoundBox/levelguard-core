@@ -131,6 +131,13 @@ private:
      * 計測が有効な状態か判定
      */
     bool is_measurement_active() const;
+
+    /**
+     * DSPプロセッサのみリセット（LUFSメーターは維持）
+     *
+     * 状態遷移時に呼ばれる。介入サイクルを繰り返すためにLUFS計測は維持する。
+     */
+    void reset_processors();
 };
 
 } // namespace dsp
