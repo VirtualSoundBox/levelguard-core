@@ -32,6 +32,7 @@ add_executable(
   core_interface_test.cpp
   configuration_test.cpp
   risk_detector_test.cpp
+  baseline_tracker_test.cpp
 )
 
 # インクルードパス
@@ -56,6 +57,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/detection/human_operation.cpp
     ${CMAKE_SOURCE_DIR}/src/core/core_interface.cpp
     ${CMAKE_SOURCE_DIR}/src/detection/risk_detector.cpp
+    ${CMAKE_SOURCE_DIR}/src/detection/baseline_tracker.cpp
 )
 
 # Google Test とリンク
