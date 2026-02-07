@@ -86,7 +86,7 @@ TEST_F(RiskDetectorTest, TransientPeakNoSustained) {
     // 50ms分のピーク（閾値100msより短い）
     size_t samples_50ms = ms_to_samples(50.0f);
     for (size_t i = 0; i < samples_50ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -104,7 +104,7 @@ TEST_F(RiskDetectorTest, SustainedPeakTriggersClipping) {
     // 100ms + α 分のピーク
     size_t samples_110ms = ms_to_samples(110.0f);
     for (size_t i = 0; i < samples_110ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -123,7 +123,7 @@ TEST_F(RiskDetectorTest, BelowThresholdPeakNoRisk) {
     // 長時間処理してもリスクなし
     size_t samples_200ms = ms_to_samples(200.0f);
     for (size_t i = 0; i < samples_200ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -146,7 +146,7 @@ TEST_F(RiskDetectorTest, TransientLufsDeviationNoSustained) {
     // 300ms分（閾値500msより短い）
     size_t samples_300ms = ms_to_samples(300.0f);
     for (size_t i = 0; i < samples_300ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -165,7 +165,7 @@ TEST_F(RiskDetectorTest, SustainedLufsTriggersOverload) {
     // 500ms + α
     size_t samples_550ms = ms_to_samples(550.0f);
     for (size_t i = 0; i < samples_550ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -185,7 +185,7 @@ TEST_F(RiskDetectorTest, BelowThresholdLufsNoRisk) {
     // 長時間処理してもリスクなし
     size_t samples_1000ms = ms_to_samples(1000.0f);
     for (size_t i = 0; i < samples_1000ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -204,7 +204,7 @@ TEST_F(RiskDetectorTest, InvalidIntegratedLufsNoOverload) {
 
     size_t samples_1000ms = ms_to_samples(1000.0f);
     for (size_t i = 0; i < samples_1000ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -226,7 +226,7 @@ TEST_F(RiskDetectorTest, SafeAfterRecovery) {
     // まずリスク状態にする（100ms+）
     size_t samples_110ms = ms_to_samples(110.0f);
     for (size_t i = 0; i < samples_110ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
     EXPECT_TRUE(detector.should_intervene());
     EXPECT_FALSE(detector.is_safe());
@@ -235,7 +235,7 @@ TEST_F(RiskDetectorTest, SafeAfterRecovery) {
     // 1000ms + α で安全域復帰
     size_t samples_1100ms = ms_to_samples(1100.0f);
     for (size_t i = 0; i < samples_1100ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
 
     EXPECT_TRUE(detector.is_safe());
@@ -252,24 +252,24 @@ TEST_F(RiskDetectorTest, SafeResetOnNewRisk) {
     // リスク状態にする
     size_t samples_110ms = ms_to_samples(110.0f);
     for (size_t i = 0; i < samples_110ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
 
     // 500ms安定（まだ1000msに達していない）
     size_t samples_500ms = ms_to_samples(500.0f);
     for (size_t i = 0; i < samples_500ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
     EXPECT_FALSE(detector.is_safe());
 
     // また高いピーク
     for (size_t i = 0; i < samples_110ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
 
     // さらに1000ms安定が必要
     for (size_t i = 0; i < samples_500ms; ++i) {
-        detector.process(low_peak, low_peak, metrics);
+        detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
     }
     EXPECT_FALSE(detector.is_safe());
 }
@@ -287,7 +287,7 @@ TEST_F(RiskDetectorTest, ResetClearsState) {
     // リスク状態にする
     size_t samples_110ms = ms_to_samples(110.0f);
     for (size_t i = 0; i < samples_110ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
     EXPECT_TRUE(detector.should_intervene());
 
@@ -318,7 +318,7 @@ TEST_F(RiskDetectorTest, BothRisksSimultaneous) {
     // 550ms（両方の閾値を超える）
     size_t samples_550ms = ms_to_samples(550.0f);
     for (size_t i = 0; i < samples_550ms; ++i) {
-        detector.process(high_peak, high_peak, metrics);
+        detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
     }
 
     auto status = detector.get_status();
@@ -340,10 +340,10 @@ TEST_F(RiskDetectorTest, IntermittentPeaksNoSustained) {
     for (int cycle = 0; cycle < 5; ++cycle) {
         size_t samples_50ms = ms_to_samples(50.0f);
         for (size_t i = 0; i < samples_50ms; ++i) {
-            detector.process(high_peak, high_peak, metrics);
+            detector.process(high_peak, high_peak, metrics, metrics.integrated_lufs);
         }
         for (size_t i = 0; i < samples_50ms; ++i) {
-            detector.process(low_peak, low_peak, metrics);
+            detector.process(low_peak, low_peak, metrics, metrics.integrated_lufs);
         }
     }
 

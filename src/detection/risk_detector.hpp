@@ -43,8 +43,9 @@ public:
      * @param left 左チャンネル入力（-1.0〜1.0）
      * @param right 右チャンネル入力（-1.0〜1.0）
      * @param metrics DSPチェーンからのメトリクス
+     * @param baseline_lufs ベースラインLUFS（BaselineTrackerから取得、上限適用済み）
      */
-    void process(float left, float right, const dsp::DspMetrics& metrics);
+    void process(float left, float right, const dsp::DspMetrics& metrics, float baseline_lufs);
 
     /**
      * 現在のリスク状態を取得

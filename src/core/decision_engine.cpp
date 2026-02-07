@@ -26,9 +26,11 @@ DecisionEngine::DecisionEngine(float sample_rate)
 
 void DecisionEngine::process(float left, float right, const dsp::DspMetrics& metrics)
 {
-    // 1. RiskDetectorとBaselineTrackerを更新
-    risk_detector_.process(left, right, metrics);
+    // 1. BaselineTrackerを先に更新（上限適用済みのベースラインを取得するため）
     baseline_tracker_.update(metrics.short_term_lufs, metrics.integrated_lufs);
+
+    // 2. RiskDetectorを更新（上限適用済みのベースラインを渡す）
+    risk_detector_.process(left, right, metrics, baseline_tracker_.get_baseline_lufs());
 
     // 2. タイムアウト後の再介入ブロックを解除（安全域に復帰したら）
     if (restart_blocked_ && risk_detector_.is_safe()) {
