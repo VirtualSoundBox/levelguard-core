@@ -33,6 +33,7 @@ add_executable(
   configuration_test.cpp
   risk_detector_test.cpp
   baseline_tracker_test.cpp
+  decision_engine_test.cpp
 )
 
 # インクルードパス
@@ -58,6 +59,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/core/core_interface.cpp
     ${CMAKE_SOURCE_DIR}/src/detection/risk_detector.cpp
     ${CMAKE_SOURCE_DIR}/src/detection/baseline_tracker.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/decision_engine.cpp
 )
 
 # Google Test とリンク
