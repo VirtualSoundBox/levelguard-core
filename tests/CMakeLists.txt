@@ -31,6 +31,7 @@ add_executable(
   human_operation_test.cpp
   core_interface_test.cpp
   configuration_test.cpp
+  risk_detector_test.cpp
 )
 
 # インクルードパス
@@ -54,6 +55,7 @@ target_sources(
     ${CMAKE_SOURCE_DIR}/src/dsp/dsp_chain.cpp
     ${CMAKE_SOURCE_DIR}/src/detection/human_operation.cpp
     ${CMAKE_SOURCE_DIR}/src/core/core_interface.cpp
+    ${CMAKE_SOURCE_DIR}/src/detection/risk_detector.cpp
 )
 
 # Google Test とリンク
