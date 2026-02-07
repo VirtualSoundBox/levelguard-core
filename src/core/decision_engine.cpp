@@ -17,6 +17,7 @@ DecisionEngine::DecisionEngine(float sample_rate)
     , baseline_tracker_(sample_rate)
     , is_intervening_(false)
     , human_operation_detected_(false)
+    , restart_blocked_(false)
     , intervention_samples_(0)
     , end_reason_(InterventionEndReason::NONE)
 {
@@ -29,7 +30,12 @@ void DecisionEngine::process(float left, float right, const dsp::DspMetrics& met
     risk_detector_.process(left, right, metrics);
     baseline_tracker_.update(metrics.short_term_lufs, metrics.integrated_lufs);
 
-    // 2. 介入中の場合、継続時間をカウント
+    // 2. タイムアウト後の再介入ブロックを解除（安全域に復帰したら）
+    if (restart_blocked_ && risk_detector_.is_safe()) {
+        restart_blocked_ = false;
+    }
+
+    // 3. 介入中の場合、継続時間をカウント
     if (is_intervening_) {
         intervention_samples_++;
 
@@ -47,6 +53,7 @@ void DecisionEngine::process(float left, float right, const dsp::DspMetrics& met
 bool DecisionEngine::should_start_intervention() const
 {
     return !is_intervening_
+        && !restart_blocked_
         && risk_detector_.should_intervene()
         && baseline_tracker_.is_established()
         && !human_operation_detected_;
@@ -71,6 +78,10 @@ void DecisionEngine::notify_intervention_started()
 
 void DecisionEngine::notify_intervention_ended()
 {
+    // タイムアウトで終了した場合、安全域に復帰するまで再介入をブロック
+    if (end_reason_ == InterventionEndReason::TIMEOUT) {
+        restart_blocked_ = true;
+    }
     is_intervening_ = false;
 }
 
@@ -98,6 +109,7 @@ void DecisionEngine::reset()
     baseline_tracker_.reset();
     is_intervening_ = false;
     human_operation_detected_ = false;
+    restart_blocked_ = false;
     intervention_samples_ = 0;
     end_reason_ = InterventionEndReason::NONE;
 }

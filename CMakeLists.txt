@@ -40,6 +40,8 @@ target_sources(
   PRIVATE
     src/plugin.cpp
     src/core/state_machine.cpp
+    src/core/core_interface.cpp
+    src/core/decision_engine.cpp
     src/dsp/true_peak.cpp
     src/dsp/rms.cpp
     src/dsp/lufs.cpp
@@ -48,7 +50,8 @@ target_sources(
     src/dsp/gain_controller.cpp
     src/dsp/dsp_chain.cpp
     src/detection/human_operation.cpp
-    src/core/core_interface.cpp
+    src/detection/risk_detector.cpp
+    src/detection/baseline_tracker.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

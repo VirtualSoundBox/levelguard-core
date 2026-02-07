@@ -12,6 +12,7 @@
 #include "event.hpp"
 #include "state_machine.hpp"
 #include "core_config.hpp"
+#include "decision_engine.hpp"
 #include "../dsp/dsp_chain.hpp"
 #include "../detection/human_operation.hpp"
 #include <memory>
@@ -191,16 +192,13 @@ private:
     std::unique_ptr<StateMachine> state_machine_;
     std::unique_ptr<dsp::DspChain> dsp_chain_;
     std::unique_ptr<detection::HumanOperationDetector> human_detector_;
+    std::unique_ptr<DecisionEngine> decision_engine_;
 
     // コールバック
     StateChangedCallback on_state_changed_;
     InterventionCallback on_intervention_start_;
     InterventionCallback on_intervention_end_;
     ErrorCallback on_error_;
-
-    // リスクフラグ
-    bool clipping_risk_detected_;
-    bool overload_risk_detected_;
 
     /**
      * 状態変化時のコールバック（内部）
