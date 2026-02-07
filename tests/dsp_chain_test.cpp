@@ -360,6 +360,69 @@ TEST_F(DspChainTest, LatencyReporting) {
 }
 
 // ============================================================================
+// 状態遷移時のLUFS維持テスト
+// ============================================================================
+
+// 状態遷移後もLUFSメーターがリセットされない
+TEST_F(DspChainTest, LufsPreservedOnStateChange) {
+    DspChain chain(SAMPLE_RATE);
+    chain.set_state(CoreState::MONITORING);
+
+    // 5秒間の信号を処理してLUFSを確立
+    float amplitude = db_to_linear(-14.0f);
+    auto input = generate_sine(1000.0f, amplitude, 5.0f, SAMPLE_RATE);
+
+    for (auto s : input) {
+        chain.process(s, s);
+    }
+
+    // LUFS値を記録
+    auto metrics_before = chain.get_metrics();
+    float lufs_before = metrics_before.integrated_lufs;
+    EXPECT_GT(lufs_before, -std::numeric_limits<float>::infinity());
+
+    // 状態遷移: MONITORING -> INTERVENING
+    chain.set_state(CoreState::INTERVENING);
+
+    // LUFS値が維持されている
+    auto metrics_after = chain.get_metrics();
+    EXPECT_NEAR(metrics_after.integrated_lufs, lufs_before, 1.0f);
+}
+
+// INTERVENING -> MONITORING でもLUFSが維持される
+TEST_F(DspChainTest, LufsPreservedOnInterventionEnd) {
+    DspChain chain(SAMPLE_RATE);
+    chain.set_state(CoreState::MONITORING);
+
+    // 5秒間の信号を処理
+    float amplitude = db_to_linear(-14.0f);
+    auto input = generate_sine(1000.0f, amplitude, 5.0f, SAMPLE_RATE);
+
+    for (auto s : input) {
+        chain.process(s, s);
+    }
+
+    // INTERVENING状態に遷移
+    chain.set_state(CoreState::INTERVENING);
+
+    // さらに1秒処理
+    auto more_input = generate_sine(1000.0f, amplitude, 1.0f, SAMPLE_RATE);
+    for (auto s : more_input) {
+        chain.process(s, s);
+    }
+
+    auto metrics_intervening = chain.get_metrics();
+    float lufs_intervening = metrics_intervening.integrated_lufs;
+
+    // MONITORING状態に戻る
+    chain.set_state(CoreState::MONITORING);
+
+    // LUFS値が維持されている
+    auto metrics_after = chain.get_metrics();
+    EXPECT_NEAR(metrics_after.integrated_lufs, lufs_intervening, 1.0f);
+}
+
+// ============================================================================
 // 連続処理テスト
 // ============================================================================
 

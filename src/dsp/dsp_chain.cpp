@@ -73,7 +73,7 @@ void DspChain::set_state(core::CoreState state)
 {
     if (state_ != state) {
         state_ = state;
-        reset();
+        reset_processors();
     }
 }
 
@@ -96,6 +96,11 @@ size_t DspChain::get_latency_samples() const
 void DspChain::reset()
 {
     lufs_meter_.reset();
+    reset_processors();
+}
+
+void DspChain::reset_processors()
+{
     gain_controller_.reset();
     compressor_left_.reset();
     compressor_right_.reset();
